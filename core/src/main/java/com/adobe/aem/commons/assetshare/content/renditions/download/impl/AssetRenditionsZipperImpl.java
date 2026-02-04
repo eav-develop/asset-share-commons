@@ -89,7 +89,7 @@ public class AssetRenditionsZipperImpl implements AssetRenditionsDownloadOrchest
                         final List<String> renditionNames) throws IOException {
         final String filename = StringUtils.defaultIfBlank(getFileName(request.getResource().getValueMap()), DEFAULT_FILE_ATTACHMENT_NAME);
 
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+        response.setHeader("Content-Disposition", ("attachment; filename=\"" + filename + "\"").replaceAll("[\\r\\n]", ""));
         response.setContentType(JcrPackage.MIME_TYPE);
 
         final ZipOutputStream zipOutputStream = new ZipOutputStream(response.getOutputStream());
