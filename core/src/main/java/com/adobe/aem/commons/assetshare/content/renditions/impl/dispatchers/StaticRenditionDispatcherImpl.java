@@ -145,8 +145,11 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
                 assetRenditionTracker.track(this, request, parameters, rendition.getPath());
             }
 
-            response.setHeader("Content-Type", rendition.getMimeType());
+            response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
 
+            if (!rendition.getPath().startsWith("/content/dam")) {
+                throw new ServletException(String.format("Rendition with path [ %s ] is not allowed", rendition.getPath()));
+            }
             request.getRequestDispatcher(rendition.adaptTo(Resource.class)).include(
                    new AssetRenditionDownloadRequest(request,
                            "GET",
