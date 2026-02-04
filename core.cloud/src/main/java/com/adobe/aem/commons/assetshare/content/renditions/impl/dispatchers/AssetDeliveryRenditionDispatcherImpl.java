@@ -170,7 +170,7 @@ public class AssetDeliveryRenditionDispatcherImpl extends AbstractRenditionDispa
                 response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
             }
 
-            response.setHeader("Location", renditionRedirect);
+            response.setHeader("Location", renditionRedirect.replaceAll("[\\r\\n]", ""));
 
         } else {
             log.error("Could not convert [ {} ] into a valid URI", renditionRedirect);
