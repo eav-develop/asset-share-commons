@@ -86,6 +86,7 @@ public class AssetRenditionServlet extends SlingSafeMethodsServlet {
     private transient Set allowedParameters = new HashSet();
 
     public final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException, ServletException {
+        response.setContentType("application/json;charset=UTF-8");
         try {
             final AssetRenditionParameters parameters = new AssetRenditionParameters(request);
 
@@ -160,9 +161,9 @@ public class AssetRenditionServlet extends SlingSafeMethodsServlet {
 
     protected void setResponseHeaders(final SlingHttpServletResponse response, final AssetRenditionParameters parameters) {
         if (parameters.isDownload()) {
-            response.setHeader("Content-Disposition", String.format("attachment; filename=%s", parameters.getFileName()));
+            response.setHeader("Content-Disposition", (String.format("attachment; filename=%s", parameters.getFileName())).replaceAll("[\\r\\n]", ""));
         } else {
-            response.setHeader("Content-Disposition", String.format("filename=%s", parameters.getFileName()));
+            response.setHeader("Content-Disposition", (String.format("filename=%s", parameters.getFileName())).replaceAll("[\\r\\n]", ""));
         }
     }
 
