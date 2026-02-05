@@ -56,9 +56,14 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     private transient Cfg cfg;
 
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
+        Resource resource = request.getResource();
+        String resourcePath = resource.getPath();
+        if (!resourcePath.startsWith("/content")) {
+            throw new RuntimeException("The resource path is not allowed");
+        }
         RequestDispatcherOptions opts = new RequestDispatcherOptions();
         opts.setForceResourceType("cq:Page");
-        request.getRequestDispatcher(request.getResource(), opts).forward(new GetRequest(request), response);
+        request.getRequestDispatcher(resourcePath, opts).forward(new GetRequest(request), response);
     }
 
     @Override
