@@ -147,10 +147,11 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
 
             response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
 
-            if (!rendition.getPath().startsWith("/content/dam")) {
-                throw new ServletException(String.format("Rendition with path [ %s ] is not allowed", rendition.getPath()));
+            Resource resource = rendition.adaptTo(Resource.class);
+            if (resource == null || !resource.getPath().startsWith("/content/dam")) {
+                throw new RuntimeException("Rendition is null or not under /content/dam");
             }
-            request.getRequestDispatcher(rendition.adaptTo(Resource.class)).include(
+            Objects.requireNonNull(request.getRequestDispatcher(resource)).include(
                    new AssetRenditionDownloadRequest(request,
                            "GET",
                            rendition.adaptTo(Resource.class),

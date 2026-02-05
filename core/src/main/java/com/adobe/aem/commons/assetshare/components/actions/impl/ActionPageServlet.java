@@ -37,6 +37,7 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Objects;
 
 @Component(
         service = Servlet.class,
@@ -54,7 +55,11 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     private transient Cfg cfg;
 
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
-        request.getRequestDispatcher(request.getResource()).forward(new GetRequest(request), response);
+        Resource resource = request.getResource();
+        if (!resource.getPath().startsWith("/content")) {
+            throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed");
+        }
+        Objects.requireNonNull(request.getRequestDispatcher(resource)).forward(new GetRequest(request), response);
     }
 
     @Override
