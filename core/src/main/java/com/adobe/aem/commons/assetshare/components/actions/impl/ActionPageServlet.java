@@ -22,6 +22,7 @@ package com.adobe.aem.commons.assetshare.components.actions.impl;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.request.RequestDispatcherOptions;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.servlets.OptingServlet;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
@@ -55,11 +56,9 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     private transient Cfg cfg;
 
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
-        Resource resource = request.getResource();
-        if (!resource.getPath().startsWith("/content")) {
-            throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed");
-        }
-        Objects.requireNonNull(request.getRequestDispatcher(resource)).forward(new GetRequest(request), response);
+        RequestDispatcherOptions opts = new RequestDispatcherOptions();
+        opts.setForceResourceType("cq:Page");
+        request.getRequestDispatcher(request.getResource(), opts).forward(new GetRequest(request), response);
     }
 
     @Override
