@@ -24,7 +24,6 @@ import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionDispatc
 import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionDispatchers;
 import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionParameters;
 import com.adobe.aem.commons.assetshare.util.ServletHelper;
-import com.day.text.Text;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
@@ -96,7 +95,8 @@ public class AssetRenditionServlet extends SlingSafeMethodsServlet {
                 final AssetModel assetModel = modelFactory.getModelFromWrappedRequest(request, request.getResourceResolver().getResource(parameters.getAsset().getPath()), AssetModel.class);
 
                 if (assetModel == null) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Asset [ " + Text.escape(parameters.getAsset().getPath()) + " ] cannot be resolved.");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Asset cannot be resolved. See error logs for details.");
+                    log.error("Asset [ {} ] cannot be resolved.", parameters.getAsset().getPath());
                     return;
                 }
 
