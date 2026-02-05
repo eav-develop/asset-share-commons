@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -147,21 +149,69 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
 
             response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
 
-            Resource resource = rendition.adaptTo(Resource.class);
-            if (resource == null || !resource.getPath().startsWith("/content/dam")) {
-                throw new RuntimeException("Rendition is null or not under /content/dam");
-            }
-            Objects.requireNonNull(request.getRequestDispatcher(resource)).include(
-                   new AssetRenditionDownloadRequest(request,
-                           "GET",
-                           rendition.adaptTo(Resource.class),
-                           new String[]{},
-                           null,
-                           ""), response);
+            includeRenditionDownload(request, response, rendition);
 
         } else {
             throw new ServletException(String.format("Cloud not locate rendition [ %s ] for assets [ %s ]", parameters.getRenditionName(), asset.getPath()));
         }
+    }
+
+    /**
+     * Includes a rendition download request with path traversal protection
+     */
+    private void includeRenditionDownload(SlingHttpServletRequest request,
+                                          SlingHttpServletResponse response,
+                                          Rendition rendition) throws ServletException, IOException {
+
+        // Get the resource
+        Resource renditionResource = rendition.adaptTo(Resource.class);
+        if (renditionResource == null) {
+            throw new IllegalArgumentException("Rendition is not a valid resource");
+        }
+
+        // Validate the resource path
+        String resourcePath = renditionResource.getPath();
+
+        // 1. Check for empty/null paths
+        if (StringUtils.isBlank(resourcePath)) {
+            throw new IllegalArgumentException("Resource path cannot be empty");
+        }
+
+        // 2. Reject obvious traversal sequences
+        if (resourcePath.contains("../") || resourcePath.contains("..\\") ||
+                resourcePath.contains("//") || resourcePath.contains("\\\\")) {
+            throw new IllegalArgumentException("Invalid resource path detected");
+        }
+
+        // 3. Reject encoded traversal attempts
+        String decodedPath;
+        try {
+            decodedPath = URLDecoder.decode(resourcePath, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalArgumentException("Invalid resource path encoding");
+        }
+
+        if (decodedPath.contains("../") || decodedPath.contains("..\\")) {
+            throw new IllegalArgumentException("Encoded traversal detected");
+        }
+
+        // 4. Ensure resource is within DAM
+        if (!resourcePath.startsWith("/content/dam")) {
+            throw new IllegalArgumentException("Resource path not in allowed location: " + resourcePath);
+        }
+
+        // 5. Include the request dispatcher
+        if (log.isDebugEnabled()) {
+            log.debug("Including rendition request for: {}", resourcePath);
+        }
+
+        Objects.requireNonNull(request.getRequestDispatcher(resourcePath)).include(
+                new AssetRenditionDownloadRequest(request,
+                        "GET",
+                        renditionResource,
+                        new String[]{},
+                        null,
+                        ""), response);
     }
 
     @Override
