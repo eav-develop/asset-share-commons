@@ -62,11 +62,11 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
         Resource resource = request.getResource();
         String resourcePath = resource.getPath();
         if (!resourcePath.startsWith("/content") || !StringUtils.containsAny(resourcePath, "/download", "/share", "/license", "/cart")) {
-            throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed.");
+            throw new RuntimeException("The resource path " + resourcePath + " is not allowed.");
         }
         ValueMap properties = ResourceUtil.getValueMap(resource.getChild("jcr:content"));
         if (!properties.get("cq:template", "").equals("/conf/mldna/settings/wcm/templates/action-template")) {
-            throw new RuntimeException("The page " + resource.getPath() + " is not an Action Page.");
+            throw new RuntimeException("The page " + resourcePath + " is not an Action Page.");
         }
         request.getRequestDispatcher(resource).forward(new GetRequest(request), response);
     }

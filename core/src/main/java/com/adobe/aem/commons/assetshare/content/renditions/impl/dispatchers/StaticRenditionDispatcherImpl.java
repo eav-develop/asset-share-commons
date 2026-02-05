@@ -28,7 +28,6 @@ import com.day.cq.dam.api.DamConstants;
 import com.day.cq.dam.api.Rendition;
 import com.day.cq.dam.api.RenditionPicker;
 import com.day.cq.dam.commons.util.DamUtil;
-import com.day.text.Text;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
@@ -130,7 +129,13 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
 
     @Override
     public void dispatch(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException, ServletException {
-        final Asset asset = DamUtil.resolveToAsset(request.getResource());
+        Resource assetResource = request.getResource();
+        String assetResourcePath = assetResource.getPath();
+        if (!assetResourcePath.startsWith("/content/dam/")) {
+            throw new RuntimeException("The resource path " + assetResourcePath + " is not a valid asset.");
+        }
+
+        final Asset asset = DamUtil.resolveToAsset(assetResource);
         final AssetRenditionParameters parameters = new AssetRenditionParameters(request);
 
         final Rendition rendition = findRendition(asset, parameters);
@@ -148,29 +153,20 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
 
             response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
 
-            final String resourcePath = Text.unescape(cleanPathInfoRequestPath(rendition.getPath()));
-            request.getRequestDispatcher(resourcePath).include(
+            Resource renditionResource = rendition.adaptTo(Resource.class);
+            if (renditionResource == null || !renditionResource.getPath().contains("/jcr:content/renditions")) {
+                throw new RuntimeException("The static rendition for " + assetResourcePath + " asset is not valid.");
+            }
+            request.getRequestDispatcher(renditionResource).include(
                    new AssetRenditionDownloadRequest(request,
                            "GET",
-                           rendition.adaptTo(Resource.class),
+                           renditionResource,
                            new String[]{},
                            null,
                            ""), response);
 
         } else {
             throw new ServletException(String.format("Cloud not locate rendition [ %s ] for assets [ %s ]", parameters.getRenditionName(), asset.getPath()));
-        }
-    }
-
-    protected String cleanPathInfoRequestPath(String resourcePath) {
-        if (StringUtils.startsWith(resourcePath, "/")) {
-            return resourcePath;
-        } else if (resourcePath.contains("://")) {
-            log.debug("Resource Path [ {} ] appears to have a scheme, stripping to just the path.", resourcePath);
-            return "/" + StringUtils.substringAfter(StringUtils.substringAfter(resourcePath, "://"), "/");
-        } else {
-            log.debug("Resource Path [ {} ] appears to be relative, changing to be absolute.", resourcePath);
-            return "/" + resourcePath;
         }
     }
 
