@@ -19,11 +19,14 @@
 
 package com.adobe.aem.commons.assetshare.components.actions.impl;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.request.RequestDispatcherOptions;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceUtil;
+import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.servlets.OptingServlet;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.wrappers.SlingHttpServletRequestWrapper;
@@ -58,12 +61,14 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
         Resource resource = request.getResource();
         String resourcePath = resource.getPath();
-        if (!resourcePath.startsWith("/content")) {
-            throw new RuntimeException("The resource path is not allowed");
+        if (!resourcePath.startsWith("/content") || !StringUtils.containsAny(resourcePath, "/download", "/share", "/license", "/cart")) {
+            throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed.");
         }
-        RequestDispatcherOptions opts = new RequestDispatcherOptions();
-        opts.setForceResourceType("cq:Page");
-        request.getRequestDispatcher(resourcePath, opts).forward(new GetRequest(request), response);
+        ValueMap properties = ResourceUtil.getValueMap(resource.getChild("jcr:content"));
+        if (!properties.get("cq:template", "").equals("/conf/mldna/settings/wcm/templates/action-template")) {
+            throw new RuntimeException("The page " + resource.getPath() + " is not an Action Page.");
+        }
+        request.getRequestDispatcher(resource).forward(new GetRequest(request), response);
     }
 
     @Override
