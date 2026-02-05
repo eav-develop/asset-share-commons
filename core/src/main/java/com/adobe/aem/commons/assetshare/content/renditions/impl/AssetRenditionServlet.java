@@ -24,10 +24,10 @@ import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionDispatc
 import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionDispatchers;
 import com.adobe.aem.commons.assetshare.content.renditions.AssetRenditionParameters;
 import com.adobe.aem.commons.assetshare.util.ServletHelper;
+import com.day.text.Text;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.apache.sling.models.factory.ModelFactory;
@@ -86,7 +86,6 @@ public class AssetRenditionServlet extends SlingSafeMethodsServlet {
     private transient Set allowedParameters = new HashSet();
 
     public final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException, ServletException {
-        response.setContentType("application/json;charset=UTF-8");
         try {
             final AssetRenditionParameters parameters = new AssetRenditionParameters(request);
 
@@ -97,7 +96,7 @@ public class AssetRenditionServlet extends SlingSafeMethodsServlet {
                 final AssetModel assetModel = modelFactory.getModelFromWrappedRequest(request, request.getResourceResolver().getResource(parameters.getAsset().getPath()), AssetModel.class);
 
                 if (assetModel == null) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Asset [ " + parameters.getAsset().getPath() + " ] cannot be resolved.");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Asset [ " + Text.escape(parameters.getAsset().getPath()) + " ] cannot be resolved.");
                     return;
                 }
 
