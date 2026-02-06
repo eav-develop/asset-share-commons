@@ -143,17 +143,57 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
     }
 
     /**
-     * Trigger the downloadId in a new window
-     * Remove the downloadId from session storage
-     * @param {*} downloadId
-     * @param {*} downloadUri
+     * Trigger download using safe, controlled mechanism
+     * Instead of window.open(), use a form submission or direct download
      */
     function downloadArtifact(downloadId, downloadUri) {
-        //trigger the download in a new window
-        window.open(downloadUri, '_blank');
+        // Validate the URI
+        if (!isValidDownloadUrl(downloadUri)) {
+            console.error("Invalid download URL");
+            return;
+        }
 
-        //remove downloadId from storage
+        // Option A: Create a temporary link and click it (more control)
+        const link = document.createElement('a');
+        link.href = downloadUri;
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');  // Security: prevent window.opener access
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Remove downloadId from storage
         downloadStore.removeDownloadById(downloadId);
+    }
+
+    /**
+     * Validates download URL safely
+     */
+    function isValidDownloadUrl(url) {
+        if (!url || typeof url !== 'string') {
+            return false;
+        }
+
+        // Reject dangerous protocols
+        const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
+        const lowerUrl = url.toLowerCase();
+
+        if (dangerousProtocols.some(protocol => lowerUrl.startsWith(protocol))) {
+            return false;
+        }
+
+        // Relative URLs are safe
+        if (url.startsWith('/') || url.startsWith('.')) {
+            return true;
+        }
+
+        // For absolute URLs, validate same-origin
+        try {
+            const urlObj = new URL(url, window.location.origin);
+            return urlObj.origin === window.location.origin;
+        } catch (e) {
+            return false;
+        }
     }
 
     return {
