@@ -143,57 +143,50 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
     }
 
     /**
-     * Trigger download using safe, controlled mechanism
-     * Instead of window.open(), use a form submission or direct download
+     * Trigger the downloadId in a new window
+     * Remove the downloadId from session storage
+     * @param {*} downloadId
+     * @param {*} downloadUri
      */
-    function downloadArtifact(downloadId, downloadUri) {
-        // Validate the URI
+    async function downloadArtifact(downloadUri, fileName) {
+        // Validate the URL
         if (!isValidDownloadUrl(downloadUri)) {
             console.error("Invalid download URL");
             return;
         }
 
-        // Option A: Create a temporary link and click it (more control)
-        const link = document.createElement('a');
-        link.href = downloadUri;
-        link.setAttribute('target', '_blank');
-        link.setAttribute('rel', 'noopener noreferrer');  // Security: prevent window.opener access
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        try {
+            // Fetch the file as a blob
+            const response = await fetch(downloadUri);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        // Remove downloadId from storage
-        downloadStore.removeDownloadById(downloadId);
+            const blob = await response.blob();
+
+            // Create object URL from blob
+            const objectUrl = URL.createObjectURL(blob);
+
+            // Create link (not added to DOM yet)
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = sanitizeFileName(fileName) || 'download';
+
+            // Trigger click without appending to DOM
+            link.click();
+
+            // Cleanup
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+        } catch (error) {
+            console.error("Download failed:", error);
+            handleDownloadError(error);
+        }
     }
 
-    /**
-     * Validates download URL safely
-     */
-    function isValidDownloadUrl(url) {
-        if (!url || typeof url !== 'string') {
-            return false;
-        }
-
-        // Reject dangerous protocols
-        const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
-        const lowerUrl = url.toLowerCase();
-
-        if (dangerousProtocols.some(protocol => lowerUrl.startsWith(protocol))) {
-            return false;
-        }
-
-        // Relative URLs are safe
-        if (url.startsWith('/') || url.startsWith('.')) {
-            return true;
-        }
-
-        // For absolute URLs, validate same-origin
-        try {
-            const urlObj = new URL(url, window.location.origin);
-            return urlObj.origin === window.location.origin;
-        } catch (e) {
-            return false;
-        }
+    function sanitizeFileName(fileName) {
+        if (!fileName || typeof fileName !== 'string') return 'download';
+        // Remove path traversal and dangerous characters
+        return fileName.replace(/[\/\\:*?"<>|]/g, '_').substring(0, 255);
     }
 
     return {

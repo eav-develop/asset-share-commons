@@ -149,7 +149,7 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
                 assetRenditionTracker.track(this, request, parameters, rendition.getPath());
             }
 
-            response.setHeader("Content-Type", rendition.getMimeType());
+            response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
 
             final String rawPath = rendition.getPath();
             final String normalizedJcr = ResourceUtil.normalize(rawPath);
