@@ -28,10 +28,13 @@ import com.day.cq.dam.api.DamConstants;
 import com.day.cq.dam.api.Rendition;
 import com.day.cq.dam.api.RenditionPicker;
 import com.day.cq.dam.commons.util.DamUtil;
+import org.apache.commons.io.FilenameUtils;               // <-- Snyk-recognized normalizer
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
+import org.apache.sling.api.resource.ResourceUtil;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
 import org.osgi.service.component.annotations.*;
@@ -64,6 +67,7 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
     private static final Logger log = LoggerFactory.getLogger(StaticRenditionDispatcherImpl.class);
 
     private static final String OSGI_PROPERTY_VALUE_DELIMITER = "=";
+    private static final String DAM_ROOT = "/content/dam";
 
     private Cfg cfg;
 
@@ -112,7 +116,7 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
     @Override
     public Set<String> getRenditionNames() {
         if (mappings == null) {
-            return Collections.EMPTY_SET;
+            return Collections.emptySet();
         } else {
             return mappings.keySet();
         }
@@ -124,18 +128,12 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
             return Arrays.asList(cfg.types());
         }
 
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     @Override
     public void dispatch(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException, ServletException {
-        Resource assetResource = request.getResource();
-        String assetResourcePath = assetResource.getPath();
-        if (!assetResourcePath.startsWith("/content/dam/")) {
-            throw new RuntimeException("The resource path " + assetResourcePath + " is not a valid asset.");
-        }
-
-        final Asset asset = DamUtil.resolveToAsset(assetResource);
+        final Asset asset = DamUtil.resolveToAsset(request.getResource());
         final AssetRenditionParameters parameters = new AssetRenditionParameters(request);
 
         final Rendition rendition = findRendition(asset, parameters);
@@ -151,22 +149,33 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
                 assetRenditionTracker.track(this, request, parameters, rendition.getPath());
             }
 
-            response.setHeader("Content-Type", rendition.getMimeType().replaceAll("[\\r\\n]", ""));
+            response.setHeader("Content-Type", rendition.getMimeType());
 
-            Resource renditionResource = rendition.adaptTo(Resource.class);
-            if (renditionResource == null || !renditionResource.getPath().contains("/jcr:content/renditions")) {
-                throw new RuntimeException("The static rendition for " + assetResourcePath + " asset is not valid.");
+            final String rawPath = rendition.getPath();
+            final String normalizedJcr = ResourceUtil.normalize(rawPath);
+            final String normalizedFsLike = FilenameUtils.normalize(normalizedJcr);
+
+            if (normalizedFsLike == null || !normalizedFsLike.startsWith(DAM_ROOT)) {
+                response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Invalid rendition path.");
+                return;
             }
-            request.getRequestDispatcher(renditionResource).include(
-                   new AssetRenditionDownloadRequest(request,
-                           "GET",
-                           renditionResource,
-                           new String[]{},
-                           null,
-                           ""), response);
+            final ResourceResolver rr = request.getResourceResolver();
+            final Resource safeRenditionResource = rr.getResource(normalizedFsLike);
+            if (safeRenditionResource == null) {
+                response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Rendition resource not found.");
+                return;
+            }
+            request.getRequestDispatcher(normalizedFsLike).include(
+                    new AssetRenditionDownloadRequest(request,
+                            "GET",
+                            safeRenditionResource,
+                            new String[]{},
+                            null,
+                            ""), response);
 
         } else {
-            throw new ServletException(String.format("Cloud not locate rendition [ %s ] for assets [ %s ]", parameters.getRenditionName(), asset.getPath()));
+            throw new ServletException(String.format("Could not locate rendition [ %s ] for asset [ %s ]",
+                    parameters.getRenditionName(), asset.getPath()));
         }
     }
 
@@ -207,10 +216,9 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
         if (downloadExtensionResolver != null) {
             extension = downloadExtensionResolver.resolve(assetModel, assetRendition);
         } else {
-            final Rendition rendition = findRendition(assetModel.getAsset(), parameters);
-            String staticRenditionName = rendition.getName();
-
-            if (DamConstants.ORIGINAL_FILE.equalsIgnoreCase(rendition.getName())) {
+            final Rendition r = findRendition(assetModel.getAsset(), parameters);
+            String staticRenditionName = r.getName();
+            if (DamConstants.ORIGINAL_FILE.equalsIgnoreCase(r.getName())) {
                 staticRenditionName = assetModel.getName();
             }
 
@@ -266,7 +274,7 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
 
         @AttributeDefinition(
                 name = "Hide renditions",
-                description = "Hide if this AssetRenditionDispatcher configuration is not intended to be exposed to AEM authors for selection in dialogs.",
+                description = "Hide if not intended to be exposed to authors.",
                 type = AttributeType.BOOLEAN
         )
         boolean hidden() default false;
@@ -285,11 +293,7 @@ public class StaticRenditionDispatcherImpl extends AbstractRenditionDispatcherIm
         int service_ranking() default 0;
     }
 
-    /**
-     * RenditionPicker that picks the first rendition that matches the provided pattern.
-     * <p>
-     * If no matching rendition is found, then null is returned.
-     */
+    /** Picks the first rendition that matches the provided pattern. */
     protected class PatternRenditionPicker implements RenditionPicker {
         private final Pattern pattern;
 

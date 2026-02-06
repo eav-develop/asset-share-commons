@@ -19,17 +19,17 @@
 
 package com.adobe.aem.commons.assetshare.components.actions.impl;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.request.RequestDispatcherOptions;
 import org.apache.sling.api.resource.Resource;
-import org.apache.sling.api.resource.ResourceUtil;
-import org.apache.sling.api.resource.ValueMap;
+import org.apache.sling.api.resource.ResourceResolver;
+import org.apache.sling.api.resource.ResourceUtil; // JCR path normalizer
 import org.apache.sling.api.servlets.OptingServlet;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.wrappers.SlingHttpServletRequestWrapper;
+import org.apache.commons.io.FilenameUtils;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
@@ -41,7 +41,6 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Objects;
 
 @Component(
         service = Servlet.class,
@@ -55,28 +54,62 @@ import java.util.Objects;
 @Designate(ocd = ActionPageServlet.Cfg.class)
 public class ActionPageServlet extends SlingAllMethodsServlet implements OptingServlet {
     private static final String RESOURCE_TYPE = "asset-share-commons/components/structure/page";
+    // Allow-list base for pages
+    private static final String PAGE_ROOT = "/content";
 
     private transient Cfg cfg;
 
-    public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
-        Resource resource = request.getResource();
-        String resourcePath = resource.getPath();
-        if (!resourcePath.startsWith("/content") || !StringUtils.containsAny(resourcePath, "/download", "/share", "/license", "/cart")) {
-            throw new RuntimeException("The resource path " + resourcePath + " is not allowed.");
+    public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)
+            throws ServletException, IOException {
+
+        if (!accepts(request)) {
+            response.sendError(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Not an Action Page.");
+            return;
         }
-        ValueMap properties = ResourceUtil.getValueMap(resource.getChild("jcr:content"));
-        if (!properties.get("cq:template", "").equals("/conf/mldna/settings/wcm/templates/action-template")) {
-            throw new RuntimeException("The page " + resourcePath + " is not an Action Page.");
+
+        final Resource page = request.getResource();
+        final Resource content = (page != null) ? page.getChild(JcrConstants.JCR_CONTENT) : null;
+        if (content == null || !content.isResourceType(RESOURCE_TYPE)) {
+            response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Unsupported resource type.");
+            return;
         }
-        request.getRequestDispatcher(resource).forward(new GetRequest(request), response);
+
+        final String rawPath = page.getPath();
+
+        // Step 1: normalize using Sling (JCR-aware)
+        final String normalizedJcr = ResourceUtil.normalize(rawPath);
+        if (normalizedJcr == null) {
+            response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Invalid page path.");
+            return;
+        }
+
+        // Step 2: second canonicalization (filesystem-like) to collapse any '..' segments
+        final String normalizedFsLike = FilenameUtils.normalize(normalizedJcr, true);
+        if (normalizedFsLike == null || !normalizedFsLike.startsWith(PAGE_ROOT)) {
+            response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Invalid page path.");
+            return;
+        }
+
+        final ResourceResolver rr = request.getResourceResolver();
+        final Resource safePageResource = rr.getResource(normalizedFsLike);
+        if (safePageResource == null) {
+            response.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Page resource not found.");
+            return;
+        }
+
+        final String target = normalizedFsLike + ".partial.html";
+
+        final RequestDispatcherOptions opts = new RequestDispatcherOptions();
+        opts.setForceResourceType(RESOURCE_TYPE);
+
+        request.getRequestDispatcher(target, opts).forward(new GetRequest(request), response);
     }
 
     @Override
     public boolean accepts(@Nonnull final SlingHttpServletRequest request) {
-        final Resource resource = request.getResource().getChild(JcrConstants.JCR_CONTENT);
-
+        final Resource resource = request.getResource() != null ? request.getResource().getChild(JcrConstants.JCR_CONTENT) : null;
         if (resource != null) {
-            return Arrays.stream(cfg.resourceTypes()).anyMatch(resourceType -> resource.isResourceType(resourceType));
+            return Arrays.stream(cfg.resourceTypes()).anyMatch(resource::isResourceType);
         }
 
         return false;
