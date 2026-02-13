@@ -148,7 +148,7 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
      * @param {*} downloadId
      * @param {*} downloadUri
      */
-    async function downloadArtifact(downloadUri, fileName) {
+    async function downloadArtifact(downloadId, downloadUri) {
         // Validate the URL
         if (!isValidDownloadUrl(downloadUri)) {
             console.error("Invalid download URL");
@@ -170,13 +170,16 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
             // Create link (not added to DOM yet)
             const link = document.createElement('a');
             link.href = objectUrl;
-            link.download = sanitizeFileName(fileName) || 'download';
+            link.download = sanitizeFileName(downloadUri) || 'download';
 
             // Trigger click without appending to DOM
             link.click();
 
             // Cleanup
             setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+
+            //remove downloadId from storage
+            downloadStore.removeDownloadById(downloadId);
         } catch (error) {
             console.error("Download failed:", error);
             handleDownloadError(error);
