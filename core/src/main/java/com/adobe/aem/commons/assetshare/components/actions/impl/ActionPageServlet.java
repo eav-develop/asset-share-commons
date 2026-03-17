@@ -22,7 +22,6 @@ package com.adobe.aem.commons.assetshare.components.actions.impl;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.request.RequestDispatcherOptions;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.servlets.OptingServlet;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
@@ -40,7 +39,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.Objects;
 
 @Component(
         service = Servlet.class,
@@ -60,17 +58,12 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     private transient Cfg cfg;
 
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
-        Resource resource = request.getResource();
-        String suffix = request.getRequestPathInfo().getSuffix();
         URI uri;
         try {
             URI base = new URI(BASE_DIRECTORY);
             uri = base.resolve(request.getRequestURI()).normalize();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
-        }
-        if (!resource.getPath().startsWith("/content/mldna") && (suffix != null && suffix.startsWith("/content/dam/mldna"))) {
-            throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed");
         }
         request.getRequestDispatcher(uri.toString()).forward(new GetRequest(request), response);
     }
