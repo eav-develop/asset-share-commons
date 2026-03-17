@@ -55,6 +55,8 @@ import java.util.Objects;
 public class ActionPageServlet extends SlingAllMethodsServlet implements OptingServlet {
     private static final String RESOURCE_TYPE = "asset-share-commons/components/structure/page";
 
+    private static final String BASE_DIRECTORY = "/content/mldna/";
+
     private transient Cfg cfg;
 
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
@@ -62,7 +64,8 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
         String suffix = request.getRequestPathInfo().getSuffix();
         URI uri;
         try {
-            uri = new URI(request.getRequestURI());
+            URI base = new URI(BASE_DIRECTORY);
+            uri = base.resolve(request.getRequestURI()).normalize();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
