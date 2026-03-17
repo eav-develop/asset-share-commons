@@ -22,6 +22,7 @@ package com.adobe.aem.commons.assetshare.components.actions.impl;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.request.RequestDispatcherOptions;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.servlets.OptingServlet;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
@@ -36,6 +37,8 @@ import javax.annotation.Nonnull;
 import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -57,10 +60,16 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
     public final void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
         Resource resource = request.getResource();
         String suffix = request.getRequestPathInfo().getSuffix();
+        URI uri;
+        try {
+            uri = new URI(request.getRequestURI());
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
         if (!resource.getPath().startsWith("/content/mldna") && (suffix != null && suffix.startsWith("/content/dam/mldna"))) {
             throw new RuntimeException("The resource path " + resource.getPath() + " is not allowed");
         }
-        Objects.requireNonNull(request.getRequestDispatcher(resource)).forward(new GetRequest(request), response);
+        request.getRequestDispatcher(uri.toString()).forward(new GetRequest(request), response);
     }
 
     @Override
