@@ -65,7 +65,7 @@ public class ActionPageServlet extends SlingAllMethodsServlet implements OptingS
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
-        request.getRequestDispatcher(uri.toString()).forward(new GetRequest(request), response);
+        request.getRequestDispatcher(uri.getPath()).forward(new GetRequest(request), response);
     }
 
     @Override
