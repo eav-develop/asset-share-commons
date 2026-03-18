@@ -148,48 +148,15 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
      * @param {*} downloadId
      * @param {*} downloadUri
      */
-    async function downloadArtifact(downloadId, downloadUri) {
-        // Validate the URL
-        if (!isValidDownloadUrl(downloadUri)) {
-            console.error("Invalid download URL");
-            return;
-        }
-
-        try {
-            // Fetch the file as a blob
-            const response = await fetch(downloadUri);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-
-            // Create object URL from blob
-            const objectUrl = URL.createObjectURL(blob);
-
-            // Create link (not added to DOM yet)
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = sanitizeFileName(downloadUri) || 'download';
-
-            // Trigger click without appending to DOM
-            link.click();
-
-            // Cleanup
-            setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+    function downloadArtifact(downloadId, downloadUri) {
+        if (downloadUri.startsWith(window.location.origin) &&
+        downloadUri.contains('/content/dam.downloadbinaries.json')) {
+            //trigger the download in a new window
+            window.open(downloadUri, '_blank');
 
             //remove downloadId from storage
             downloadStore.removeDownloadById(downloadId);
-        } catch (error) {
-            console.error("Download failed:", error);
-            handleDownloadError(error);
         }
-    }
-
-    function sanitizeFileName(fileName) {
-        if (!fileName || typeof fileName !== 'string') return 'download';
-        // Remove path traversal and dangerous characters
-        return fileName.replace(/[\/\\:*?"<>|]/g, '_').substring(0, 255);
     }
 
     return {
