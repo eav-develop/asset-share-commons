@@ -149,10 +149,10 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
      * @param {*} downloadUri
      */
     function downloadArtifact(downloadId, downloadUri) {
-        if (downloadUri.startsWith(window.location.origin) &&
-        downloadUri.contains('/content/dam.downloadbinaries.json')) {
+        const url = new URL(downloadUri, window.location.origin);
+        if (url.origin === window.location.origin) {
             //trigger the download in a new window
-            window.open(downloadUri, '_blank');
+            window.open(url.toString(), '_blank');
 
             //remove downloadId from storage
             downloadStore.removeDownloadById(downloadId);
