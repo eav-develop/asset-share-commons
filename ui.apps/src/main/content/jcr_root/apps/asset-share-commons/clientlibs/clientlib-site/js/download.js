@@ -149,17 +149,17 @@ AssetShare.Download = (function ($, ns, messages, downloadStore) {
      * @param {*} downloadUri
      */
     function downloadArtifact(downloadId, downloadUri) {
-        // 1. Force the URI to be relative to the root to prevent external redirection
-        // If downloadUri is "/files/doc.pdf", this works.
-        // If it's "https://evil.com", this validation will catch it.
+        // Force the URI to be relative to the root to prevent external redirection
         const safeUri = downloadUri.startsWith('/') ? downloadUri : '/' + downloadUri;
 
-        // Use a URL object to ensure it's not a protocol-relative URL (like //evil.com)
+        // Use a URL object to ensure it's not a protocol-relative URL
         try {
             const url = new URL(safeUri, window.location.origin);
             if (url.origin === window.location.origin) {
+                //trigger the download in a new window
                 window.open(url.pathname + url.search, '_blank');
             }
+            //remove downloadId from storage
             downloadStore.removeDownloadById(downloadId);
         } catch (e) {
             console.error("Invalid download path");
